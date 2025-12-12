@@ -3,7 +3,7 @@ import Search from "./components/search";
 import Spinner from "./components/spinner";
 import MovieCard from "./components/MovieCard";
 import { useDebounce } from "react-use";
-import { updateSearchCount } from "./appwrite";
+import { getTrendingMovies, updateSearchCount } from "./appwrite";
 
 const BASE_API_URL = "https://api.themoviedb.org/3";
 
@@ -23,6 +23,7 @@ const App = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [debouncedSearchTerm, setdebouncedSearchTerm] = useState("");
+  const [trendingMovies, setTrendingMovies] = useState([]);
 
   useDebounce(() => setdebouncedSearchTerm(searchTerm), 500, [searchTerm]);
 
@@ -41,6 +42,7 @@ const App = () => {
       }
 
       const data = await response.json();
+      console.log(data);
 
       if (data.Response === "False") {
         setErrorMessage(data.Error || "Failed to fetch movies");
@@ -59,8 +61,18 @@ const App = () => {
     }
   };
 
+  const loadTrendingMovies = async () => {
+    try {
+      const movies = await getTrendingMovies();
+
+      setTrendingMovies(movies);
+    } catch (error) {
+      console.log(`Error fetching trending movies: ${error}`);
+    }
+  };
+
   useEffect(() => {
-    fetchMovies(debouncedSearchTerm);
+    fetchMovies(debouncedSearchTerm), loadTrendingMovies();
   }, [debouncedSearchTerm]);
 
   return (
@@ -75,8 +87,21 @@ const App = () => {
             </h1>
             <Search searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
           </header>
+          {trendingMovies.length > 0 && (
+            <section className="trending">
+              <h2>Trending Movies</h2>
+              <ul>
+                {trendingMovies.map((movie, index) => (
+                  <li key={movie.$id}>
+                    <p>{index + 1}</p>
+                    <img src={movie.poster_url} alt={movie.title} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section className="all-movies">
-            <h2 className="mt-[50px]">All Movies</h2>
+            <h2>All Movies</h2>
             {isLoading ? (
               <Spinner />
             ) : errorMessage ? (
