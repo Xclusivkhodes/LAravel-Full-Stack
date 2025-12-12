@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import Search from "./components/search";
 import Spinner from "./components/spinner";
 import MovieCard from "./components/MovieCard";
+import { useDebounce } from "react-use";
+import { updateSearchCount } from "./appwrite";
 
 const BASE_API_URL = "https://api.themoviedb.org/3";
 
@@ -20,12 +22,18 @@ const App = () => {
   const [movieList, setMoviesList] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [debouncedSearchTerm, setdebouncedSearchTerm] = useState("");
 
-  const fetchMovies = async () => {
+  useDebounce(() => setdebouncedSearchTerm(searchTerm), 500, [searchTerm]);
+
+  const fetchMovies = async (query = "") => {
     setIsLoading(true);
     setErrorMessage("");
+
     try {
-      const endpoint = `${BASE_API_URL}/discover/movie?sort_by=popularity.desc`;
+      const endpoint = query
+        ? `${BASE_API_URL}/search/movie?query=${encodeURIComponent(query)}`
+        : `${BASE_API_URL}/discover/movie?sort_by=popularity.desc`;
       const response = await fetch(endpoint, API_OPTIONS);
 
       if (!response.ok) {
@@ -40,6 +48,9 @@ const App = () => {
         return;
       }
       setMoviesList(data.results || []);
+      if (query && data.results.length > 0) {
+        await updateSearchCount(query, data.results[0]);
+      }
     } catch (err) {
       console.log(`Error fetching movies: ${err}`);
       setErrorMessage("Error fetching movies. Please try again later");
@@ -49,8 +60,8 @@ const App = () => {
   };
 
   useEffect(() => {
-    fetchMovies();
-  }, []);
+    fetchMovies(debouncedSearchTerm);
+  }, [debouncedSearchTerm]);
 
   return (
     <main>
@@ -65,7 +76,7 @@ const App = () => {
             <Search searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
           </header>
           <section className="all-movies">
-            <h2>All Movies</h2>
+            <h2 className="mt-[50px]">All Movies</h2>
             {isLoading ? (
               <Spinner />
             ) : errorMessage ? (
